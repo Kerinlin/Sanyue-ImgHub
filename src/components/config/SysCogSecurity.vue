@@ -71,19 +71,41 @@
                     class="token-table"
                     v-loading="tokenLoading"
                 >
-                    <el-table-column prop="name" :label="$t('sysSecurity.tokenName')" header-align="center">
+                    <el-table-column prop="name" :label="$t('sysSecurity.tokenName')" header-align="center" min-width="100">
                         <template #default="scope">
                             <div class="table-cell-content">{{ scope.row.name }}</div>
                         </template>
                     </el-table-column>
-                    <el-table-column prop="token" :label="$t('sysSecurity.tokenValue')" header-align="center">
+                    <el-table-column prop="token" :label="$t('sysSecurity.tokenValue')" header-align="center" min-width="120">
                         <template #default="scope">
                             <div class="table-cell-content">
                                 <span class="token-display">{{ scope.row.token }}</span>
                             </div>
                         </template>
                     </el-table-column>
-                    <el-table-column prop="permissions" :label="$t('sysSecurity.permissions')" header-align="center">
+                    <el-table-column :label="$t('sysSecurity.tokenScope')" header-align="center" min-width="90">
+                        <template #default="scope">
+                            <div class="table-cell-content">
+                                <el-tag
+                                    :type="scope.row.scope === 'user' ? 'warning' : (scope.row.scope === 'admin' ? 'primary' : 'info')"
+                                    size="small"
+                                >
+                                    {{ getScopeText(scope.row.scope) }}
+                                </el-tag>
+                            </div>
+                        </template>
+                    </el-table-column>
+                    <el-table-column :label="$t('sysSecurity.boundUser')" header-align="center" min-width="110">
+                        <template #default="scope">
+                            <div class="table-cell-content">
+                                <span v-if="scope.row.scope === 'user'">
+                                    {{ resolveUserLabel(scope.row.userId) }}
+                                </span>
+                                <span v-else class="muted-text">—</span>
+                            </div>
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="permissions" :label="$t('sysSecurity.permissions')" header-align="center" min-width="140">
                         <template #default="scope">
                             <div class="table-cell-content">
                                 <el-tag 
@@ -97,15 +119,23 @@
                             </div>
                         </template>
                     </el-table-column>
-                    <el-table-column prop="createdAt" :label="$t('sysSecurity.createdAt')" header-align="center">
+                    <el-table-column prop="createdAt" :label="$t('sysSecurity.createdAt')" header-align="center" min-width="120">
                         <template #default="scope">
                             <div class="table-cell-content">{{ formatDate(scope.row.createdAt) }}</div>
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('sysSecurity.status')" header-align="center" width="90">
+                    <el-table-column :label="$t('sysSecurity.status')" header-align="center" width="100">
                         <template #default="scope">
                             <div class="table-cell-content">
                                 <el-tag
+                                    v-if="scope.row.invalid"
+                                    type="danger"
+                                    size="small"
+                                >
+                                    {{ $t('sysSecurity.tokenInvalid') }}
+                                </el-tag>
+                                <el-tag
+                                    v-else
                                     :type="getTokenStatus(scope.row.expiresAt).status === 'active' ? 'success' : 'danger'"
                                     size="small"
                                 >
@@ -328,18 +358,46 @@
         <FloatingSaveButton :show="!loading" @click="saveSettings" />
 
         <!-- 创建Token对话框 -->
-        <el-dialog v-model="showCreateTokenDialog" :title="$t('sysSecurity.createTokenTitle')" :width="dialogWidth">
-            <el-form :model="newToken" :rules="tokenRules" ref="tokenForm" label-width="100px">
+        <el-dialog v-model="showCreateTokenDialog" :title="$t('sysSecurity.createTokenTitle')" :width="dialogWidth" @open="onCreateTokenDialogOpen">
+            <el-form :model="newToken" :rules="tokenRules" ref="tokenForm" label-width="110px">
                 <el-form-item :label="$t('sysSecurity.tokenNameLabel')" prop="name">
                     <el-input v-model="newToken.name" :placeholder="$t('sysSecurity.tokenNamePlaceholder')"/>
+                </el-form-item>
+                <el-form-item :label="$t('sysSecurity.tokenScope')" prop="scope">
+                    <el-radio-group v-model="newToken.scope" @change="onCreateScopeChange">
+                        <el-radio label="admin">{{ $t('sysSecurity.scopeAdmin') }}</el-radio>
+                        <el-radio label="user">{{ $t('sysSecurity.scopeUser') }}</el-radio>
+                    </el-radio-group>
+                    <div class="form-item-hint-block">{{ $t('sysSecurity.tokenScopeHint') }}</div>
+                </el-form-item>
+                <el-form-item
+                    v-if="newToken.scope === 'user'"
+                    :label="$t('sysSecurity.boundUser')"
+                    prop="userId"
+                >
+                    <el-select
+                        v-model="newToken.userId"
+                        filterable
+                        :placeholder="$t('sysSecurity.selectUserPlaceholder')"
+                        :loading="usersLoading"
+                        style="width: 100%;"
+                    >
+                        <el-option
+                            v-for="u in enabledUsers"
+                            :key="u.id"
+                            :label="formatUserOption(u)"
+                            :value="u.id"
+                        />
+                    </el-select>
                 </el-form-item>
                 <el-form-item :label="$t('sysSecurity.permissionsLabel')" prop="permissions">
                     <el-checkbox-group v-model="newToken.permissions">
                         <el-checkbox label="upload">{{ $t('sysSecurity.permUpload') }}</el-checkbox>
                         <el-checkbox label="delete">{{ $t('sysSecurity.permDelete') }}</el-checkbox>
                         <el-checkbox label="list">{{ $t('sysSecurity.permList') }}</el-checkbox>
-                        <el-checkbox label="manage">{{ $t('sysSecurity.permManage') }}</el-checkbox>
+                        <el-checkbox v-if="newToken.scope === 'admin'" label="manage">{{ $t('sysSecurity.permManage') }}</el-checkbox>
                     </el-checkbox-group>
+                    <div v-if="newToken.scope === 'user'" class="form-item-hint-block">{{ $t('sysSecurity.userTokenPermHint') }}</div>
                 </el-form-item>
                 <el-form-item :label="$t('sysSecurity.neverExpire')">
                     <el-switch v-model="newToken.neverExpire" @change="onCreateNeverExpireChange"/>
@@ -366,16 +424,24 @@
 
         <!-- 编辑Token对话框 -->
         <el-dialog v-model="showEditTokenDialog" :title="$t('sysSecurity.editTokenTitle')" :width="dialogWidth">
-            <el-form :model="editingToken" :rules="editTokenRules" ref="editTokenForm" label-width="100px">
+            <el-form :model="editingToken" :rules="editTokenRules" ref="editTokenForm" label-width="110px">
                 <el-form-item :label="$t('sysSecurity.tokenNameLabel')">
                     <el-input v-model="editingToken.name" disabled/>
+                </el-form-item>
+                <el-form-item :label="$t('sysSecurity.tokenScope')">
+                    <el-tag size="small" :type="editingToken.scope === 'user' ? 'warning' : 'primary'">
+                        {{ getScopeText(editingToken.scope) }}
+                    </el-tag>
+                    <span v-if="editingToken.scope === 'user'" class="bound-user-inline">
+                        {{ resolveUserLabel(editingToken.userId) }}
+                    </span>
                 </el-form-item>
                 <el-form-item :label="$t('sysSecurity.permissionsLabel')" prop="permissions">
                     <el-checkbox-group v-model="editingToken.permissions">
                         <el-checkbox label="upload">{{ $t('sysSecurity.permUpload') }}</el-checkbox>
                         <el-checkbox label="delete">{{ $t('sysSecurity.permDelete') }}</el-checkbox>
                         <el-checkbox label="list">{{ $t('sysSecurity.permList') }}</el-checkbox>
-                        <el-checkbox label="manage">{{ $t('sysSecurity.permManage') }}</el-checkbox>
+                        <el-checkbox v-if="editingToken.scope !== 'user'" label="manage">{{ $t('sysSecurity.permManage') }}</el-checkbox>
                     </el-checkbox-group>
                 </el-form-item>
                 <el-form-item :label="$t('sysSecurity.neverExpire')">
@@ -408,9 +474,15 @@
                     <font-awesome-icon icon="exclamation-triangle" style="margin-right: 5px;"/>
                     {{ $t('sysSecurity.tokenCreatedWarning') }}
                 </p>
-                <el-form label-width="100px">
+                <el-form label-width="110px">
                     <el-form-item :label="$t('sysSecurity.tokenNameLabel')">
                         <span>{{ createdToken.name }}</span>
+                    </el-form-item>
+                    <el-form-item :label="$t('sysSecurity.tokenScope')">
+                        <span>{{ getScopeText(createdToken.scope) }}</span>
+                        <span v-if="createdToken.scope === 'user'" class="bound-user-inline">
+                            {{ resolveUserLabel(createdToken.userId) }}
+                        </span>
                     </el-form-item>
                     <el-form-item :label="$t('sysSecurity.fullToken')">
                         <el-input v-model="createdToken.token" readonly>
@@ -459,6 +531,8 @@ data() {
         },
         accessSettings: {},
         apiTokens: [], // API Token列表
+        manageUsers: [], // 用户列表（发 Token 绑定用）
+        usersLoading: false,
         // 加载状态
         loading: true,
         tokenLoading: false,
@@ -488,11 +562,13 @@ data() {
         newToken: {
             name: '',
             owner: '',
-            permissions: [],
+            permissions: ['upload', 'list'],
             neverExpire: true,
             expirationValue: 1,
             expirationUnit: 'd',
-            autoDelete: false
+            autoDelete: false,
+            scope: 'user',
+            userId: '',
         },
         editingToken: {
             id: '',
@@ -502,17 +578,31 @@ data() {
             neverExpire: true,
             expirationValue: 1,
             expirationUnit: 'd',
-            autoDelete: false
+            autoDelete: false,
+            scope: 'admin',
+            userId: null,
         },
         createdToken: {
             name: '',
-            token: ''
+            token: '',
+            scope: '',
+            userId: null,
         }
     };
 },
 computed: {
     dialogWidth() {
         return window.innerWidth > 768 ? '50%' : '90%';
+    },
+    enabledUsers() {
+        return (this.manageUsers || []).filter(u => !u.disabled);
+    },
+    userIdToLabel() {
+        const map = {};
+        for (const u of this.manageUsers || []) {
+            map[u.id] = this.formatUserOption(u);
+        }
+        return map;
     },
     userPassRules() {
         return {
@@ -578,8 +668,23 @@ computed: {
             name: [
                 { required: true, message: this.$t('sysSecurity.tokenNameRequired'), trigger: 'blur' }
             ],
+            scope: [
+                { required: true, message: this.$t('sysSecurity.scopeRequired'), trigger: 'change' }
+            ],
+            userId: [
+                {
+                    validator: (rule, value, callback) => {
+                        if (this.newToken.scope === 'user' && !value) {
+                            callback(new Error(this.$t('sysSecurity.userIdRequired')));
+                        } else {
+                            callback();
+                        }
+                    },
+                    trigger: 'change'
+                }
+            ],
             permissions: [
-                { required: true, message: this.$t('sysSecurity.permissionsRequired'), trigger: 'change' }
+                { required: true, type: 'array', min: 1, message: this.$t('sysSecurity.permissionsRequired'), trigger: 'change' }
             ],
             expirationValue: [
                 { validator: (rule, value, callback) => {
@@ -698,6 +803,73 @@ methods: {
         };
         return permissionMap[permission] || permission;
     },
+
+    getScopeText(scope) {
+        if (scope === 'admin') return this.$t('sysSecurity.scopeAdmin');
+        if (scope === 'user') return this.$t('sysSecurity.scopeUser');
+        return this.$t('sysSecurity.scopeUnknown');
+    },
+
+    formatUserOption(u) {
+        if (!u) return '';
+        const name = u.displayName || u.username || u.id;
+        return u.username && u.displayName && u.displayName !== u.username
+            ? `${u.username} (${u.displayName})`
+            : (u.username || name);
+    },
+
+    resolveUserLabel(userId) {
+        if (!userId) return '—';
+        return this.userIdToLabel[userId] || userId;
+    },
+
+    emptyNewToken(overrides = {}) {
+        return {
+            name: '',
+            owner: '',
+            permissions: ['upload', 'list'],
+            neverExpire: true,
+            expirationValue: 1,
+            expirationUnit: 'd',
+            autoDelete: false,
+            scope: 'user',
+            userId: '',
+            ...overrides,
+        };
+    },
+
+    onCreateScopeChange(scope) {
+        if (scope === 'user') {
+            this.newToken.permissions = (this.newToken.permissions || []).filter(p => p !== 'manage');
+            if (!this.newToken.permissions.length) {
+                this.newToken.permissions = ['upload', 'list'];
+            }
+        }
+        if (scope === 'admin') {
+            this.newToken.userId = '';
+        }
+    },
+
+    async onCreateTokenDialogOpen() {
+        await this.loadManageUsers();
+    },
+
+    async loadManageUsers() {
+        this.usersLoading = true;
+        try {
+            const response = await fetchWithAuth('/api/manage/users');
+            if (!response.ok) {
+                throw new Error('load users failed');
+            }
+            const data = await response.json();
+            this.manageUsers = data.users || [];
+        } catch (error) {
+            console.error(error);
+            this.manageUsers = [];
+        } finally {
+            this.usersLoading = false;
+        }
+    },
     
     formatDate(dateString) {
         return new Date(dateString).toLocaleString('zh-CN');
@@ -706,6 +878,10 @@ methods: {
     async loadApiTokens() {
         this.tokenLoading = true;
         try {
+            // 列表展示绑定用户名需要用户表
+            if (!this.manageUsers.length) {
+                await this.loadManageUsers();
+            }
             const response = await fetchWithAuth('/api/manage/apiTokens');
             const data = await response.json();
             this.apiTokens = data.tokens || [];
@@ -721,7 +897,7 @@ methods: {
             if (!valid) return;
             
             try {
-                this.newToken.owner = 'admin'; // 默认所有Token归属管理员
+                this.newToken.owner = 'admin'; // 签发方记录为 admin
                 
                 let expiresAt = null;
                 let autoDelete = false;
@@ -729,19 +905,30 @@ methods: {
                     expiresAt = computeExpiresAt(new Date(), this.newToken.expirationValue, this.newToken.expirationUnit);
                     autoDelete = this.newToken.autoDelete;
                 }
+
+                let permissions = [...(this.newToken.permissions || [])];
+                if (this.newToken.scope === 'user') {
+                    permissions = permissions.filter(p => p !== 'manage');
+                }
                 
+                const payload = {
+                    name: this.newToken.name,
+                    owner: this.newToken.owner,
+                    permissions,
+                    expiresAt,
+                    autoDelete,
+                    scope: this.newToken.scope,
+                };
+                if (this.newToken.scope === 'user') {
+                    payload.userId = this.newToken.userId;
+                }
+
                 const response = await fetchWithAuth('/api/manage/apiTokens', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({
-                        name: this.newToken.name,
-                        owner: this.newToken.owner,
-                        permissions: this.newToken.permissions,
-                        expiresAt,
-                        autoDelete
-                    })
+                    body: JSON.stringify(payload)
                 });
                 
                 const data = await response.json();
@@ -749,11 +936,13 @@ methods: {
                 if (response.ok) {
                     this.createdToken = {
                         name: data.name,
-                        token: data.token
+                        token: data.token,
+                        scope: data.scope,
+                        userId: data.userId || null,
                     };
                     this.showCreateTokenDialog = false;
                     this.showTokenResultDialog = true;
-                    this.newToken = { name: '', owner: '', permissions: [], neverExpire: true, expirationValue: 1, expirationUnit: 'd', autoDelete: false };
+                    this.newToken = this.emptyNewToken();
                     await this.loadApiTokens();
                     this.$message.success(this.$t('sysSecurity.tokenCreateSuccess'));
                 } else {
@@ -767,17 +956,36 @@ methods: {
     
     editToken(token) {
         const hasExpiration = token.expiresAt !== null && token.expiresAt !== undefined;
+        let permissions = [...(token.permissions || [])];
+        if (token.scope === 'user') {
+            permissions = permissions.filter(p => p !== 'manage');
+        }
         this.editingToken = {
             id: token.id,
             name: token.name,
             owner: token.owner,
-            permissions: [...token.permissions],
+            permissions,
             neverExpire: !hasExpiration,
             expirationValue: 1,
             expirationUnit: 'd',
-            autoDelete: token.autoDelete || false
+            autoDelete: token.autoDelete || false,
+            scope: token.scope || null,
+            userId: token.userId || null,
         };
         this.showEditTokenDialog = true;
+    },
+
+    /**
+     * 从用户管理页快捷打开：为指定用户签发 Token
+     */
+    openCreateTokenForUser(userId, username) {
+        this.newToken = this.emptyNewToken({
+            name: username ? `${username}-api` : '',
+            scope: 'user',
+            userId: userId || '',
+            permissions: ['upload', 'list', 'delete'],
+        });
+        this.showCreateTokenDialog = true;
     },
     
     updateToken() {
@@ -1095,6 +1303,21 @@ mounted() {
     color: var(--el-text-color-regular);
     line-height: 32px;
     vertical-align: middle;
+}
+.form-item-hint-block {
+    width: 100%;
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--el-text-color-secondary);
+}
+.muted-text {
+    color: var(--el-text-color-secondary);
+}
+.bound-user-inline {
+    margin-left: 8px;
+    font-size: 13px;
+    color: var(--el-text-color-regular);
 }
 
 .query-param-list {
