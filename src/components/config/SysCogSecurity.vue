@@ -5,7 +5,16 @@
             <h3 class="first-title">{{ $t('sysSecurity.authManagement') }}</h3>
 
             <h4 class="second-title">{{ $t('sysSecurity.userAuth') }}</h4>
+            <el-alert
+                type="info"
+                :closable="false"
+                show-icon
+                style="margin-bottom: 12px;"
+                title="多用户模式：共享上传认证码已废除。请在「用户管理」中创建用户账号。"
+            />
+            <!-- 保留隐藏表单字段以兼容旧保存逻辑，UI 不再提供 authCode 编辑 -->
             <el-form 
+                v-show="false"
                 :model="authSettings.user" 
                 :rules = "userPassRules"
                 ref = "userPassForm"

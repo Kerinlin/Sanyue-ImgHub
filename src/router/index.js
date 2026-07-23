@@ -65,6 +65,15 @@ const userAuthGuard = (to, from, next) => {
     // 需要认证，检查是否有有效 session（user 或 admin 都可以）
     if (data.valid) {
       store.commit('setUserLoggedIn', true)
+      if (data.authType === 'user') {
+        store.commit('setUserIdentity', {
+          userId: data.userId || null,
+          username: data.username || null,
+          authType: 'user',
+        })
+      } else if (data.authType === 'admin') {
+        store.commit('setAuthType', 'admin')
+      }
       return next()
     }
 
@@ -111,6 +120,14 @@ const routes = [
     name: 'dashboard',
     component: () => import('../views/AdminDashBoard.vue'),
     beforeEnter: adminAuthGuard
+  },
+  // 普通用户文件台（复用 Dashboard，后端 list 按 owner 过滤）
+  {
+    path: '/files',
+    name: 'userFiles',
+    component: () => import('../views/AdminDashBoard.vue'),
+    beforeEnter: userAuthGuard,
+    meta: { userFiles: true }
   },
   {
     path: '/customerConfig',

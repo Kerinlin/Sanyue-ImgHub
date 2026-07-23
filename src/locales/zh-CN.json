@@ -4,17 +4,18 @@
     "adminTitle": "管理端登录",
     "password": "密码",
     "username": "用户名",
-    "passwordPlaceholder": "请输入认证码",
+    "passwordPlaceholder": "请输入密码",
     "usernamePlaceholder": "请输入用户名",
     "adminPasswordPlaceholder": "请输入密码",
     "submit": "登录",
     "success": "登录成功",
-    "failed": "登录失败，请检查密码是否正确",
+    "failed": "登录失败，请检查用户名或密码",
     "adminFailed": "用户名或密码错误",
     "serverError": "服务器错误",
     "systemError": "系统错误",
     "authRequired": "请先认证！",
-    "authFailed": "认证失败！"
+    "authFailed": "认证失败！",
+    "authCodeRemoved": "共享认证码已废除，请使用管理员创建的用户名密码登录"
   },
   "upload": {
     "folderPlaceholder": "上传目录",
@@ -386,7 +387,26 @@
     "uploadSettings": "上传设置",
     "securitySettings": "安全设置",
     "pageSettings": "网页设置",
-    "otherSettings": "其他设置"
+    "otherSettings": "其他设置",
+    "userManagement": "用户管理"
+  },
+  "userMgmt": {
+    "title": "用户管理",
+    "username": "用户名",
+    "password": "密码",
+    "displayName": "显示名",
+    "status": "状态",
+    "enabled": "启用",
+    "disabled": "禁用",
+    "create": "创建用户",
+    "resetPassword": "重置密码",
+    "delete": "删除",
+    "actions": "操作",
+    "createSuccess": "用户已创建",
+    "updateSuccess": "已更新",
+    "deleteConfirm": "确定删除该用户？其文件将变为无主（仅管理员可见）",
+    "newPassword": "新密码",
+    "channels": "代管渠道"
   },
   "dateRangeCalendar": {
     "previousMonth": "上个月",

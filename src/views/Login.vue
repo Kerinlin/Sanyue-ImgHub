@@ -46,6 +46,13 @@ export default {
         updateLoginFields() {
             this.loginFields = [
                 {
+                    key: 'username',
+                    label: this.$t('login.username'),
+                    placeholder: this.$t('login.usernamePlaceholder'),
+                    type: 'text',
+                    icon: 'User'
+                },
+                {
                     key: 'password',
                     label: this.$t('login.password'),
                     placeholder: this.$t('login.passwordPlaceholder'),
@@ -56,13 +63,14 @@ export default {
             ];
         },
         async handleLogin(formData) {
-            const { password } = formData;
+            const { username, password } = formData;
             
             this.isLoading = true;
             
             const minDelayPromise = new Promise(resolve => setTimeout(resolve, 500));
             const loginPromise = axios.post('/api/auth/login', {
-                authCode: password
+                username,
+                password
             }, {
                 withCredentials: true
             }).then(res => ({ res })).catch(err => ({ err }));
@@ -71,13 +79,22 @@ export default {
                 const [result] = await Promise.all([loginPromise, minDelayPromise]);
                 
                 if (result.res && result.res.status === 200) {
-                    // 会话 Token 已通过 HttpOnly Cookie 由后端设置
+                    const data = result.res.data || {};
                     this.$store.commit('setUserLoggedIn', true);
+                    this.$store.commit('setUserIdentity', {
+                        userId: data.userId || null,
+                        username: data.username || username,
+                    });
                     this.$router.push('/')
                     this.$message.success(this.$t('login.success'))
                 } else {
                     this.isLoading = false;
-                    this.$message.error(this.$t('login.failed'))
+                    const code = result.err?.response?.data?.code;
+                    if (code === 'AUTHCODE_REMOVED') {
+                        this.$message.error(this.$t('login.authCodeRemoved'))
+                    } else {
+                        this.$message.error(this.$t('login.failed'))
+                    }
                 }
             } catch (err) {
                 this.isLoading = false;

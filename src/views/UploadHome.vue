@@ -501,7 +501,13 @@ export default {
             }
         },
         handleManage() {
-            this.$router.push('/dashboard')
+            // 普通用户进个人文件台；管理员进管理后台
+            const authType = this.$store.state.authType
+            if (authType === 'admin') {
+                this.$router.push('/dashboard')
+            } else {
+                this.$router.push('/files')
+            }
         },
         // 解析布尔值
         parseBoolean(value, defaultValue) {

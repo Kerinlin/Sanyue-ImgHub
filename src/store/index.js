@@ -9,6 +9,9 @@ export default createStore({
     // 会话状态标记（不存储密码，实际认证通过 HttpOnly Cookie）
     adminLoggedIn: false,
     userLoggedIn: false,
+    userId: null,
+    username: null,
+    authType: null,
     uploadMethod: 'default',
     uploadCopyUrlForm: '',
     compressConfig: {
@@ -41,6 +44,9 @@ export default createStore({
     bingWallPapers: state => state.bingWallPapers,
     adminLoggedIn: state => state.adminLoggedIn,
     userLoggedIn: state => state.userLoggedIn,
+    userId: state => state.userId,
+    username: state => state.username,
+    authType: state => state.authType,
     storeUploadMethod: state => state.uploadMethod,
     uploadCopyUrlForm: state => state.uploadCopyUrlForm,
     compressConfig: state => state.compressConfig,
@@ -69,6 +75,20 @@ export default createStore({
     },
     setUserLoggedIn(state, loggedIn) {
       state.userLoggedIn = loggedIn;
+      if (!loggedIn) {
+        state.userId = null;
+        state.username = null;
+        if (state.authType === 'user') state.authType = null;
+      }
+    },
+    setUserIdentity(state, { userId = null, username = null, authType = 'user' } = {}) {
+      state.userId = userId;
+      state.username = username;
+      state.authType = authType;
+      state.userLoggedIn = true;
+    },
+    setAuthType(state, authType) {
+      state.authType = authType;
     },
     setUploadMethod(state, uploadMethod) {
       state.uploadMethod = uploadMethod;

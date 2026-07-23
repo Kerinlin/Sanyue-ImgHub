@@ -4,17 +4,18 @@
     "adminTitle": "Admin Login",
     "password": "Password",
     "username": "Username",
-    "passwordPlaceholder": "Enter auth code",
+    "passwordPlaceholder": "Enter password",
     "usernamePlaceholder": "Enter username",
     "adminPasswordPlaceholder": "Enter password",
     "submit": "Login",
     "success": "Login successful",
-    "failed": "Login failed, please check your password",
+    "failed": "Login failed, please check username or password",
     "adminFailed": "Invalid username or password",
     "serverError": "Server error",
     "systemError": "System error",
     "authRequired": "Please authenticate first!",
-    "authFailed": "Authentication failed!"
+    "authFailed": "Authentication failed!",
+    "authCodeRemoved": "Shared auth code removed; use username/password created by admin"
   },
   "upload": {
     "folderPlaceholder": "Upload directory",
@@ -381,7 +382,26 @@
     "uploadSettings": "Upload Settings",
     "securitySettings": "Security Settings",
     "pageSettings": "Page Settings",
-    "otherSettings": "Other Settings"
+    "otherSettings": "Other Settings",
+    "userManagement": "Users"
+  },
+  "userMgmt": {
+    "title": "User Management",
+    "username": "Username",
+    "password": "Password",
+    "displayName": "Display name",
+    "status": "Status",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "create": "Create user",
+    "resetPassword": "Reset password",
+    "delete": "Delete",
+    "actions": "Actions",
+    "createSuccess": "User created",
+    "updateSuccess": "Updated",
+    "deleteConfirm": "Delete this user? Files become unowned (admin only)",
+    "newPassword": "New password",
+    "channels": "Channel config"
   },
   "dateRangeCalendar": {
     "previousMonth": "Previous month",
