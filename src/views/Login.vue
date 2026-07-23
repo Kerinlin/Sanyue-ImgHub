@@ -36,6 +36,8 @@ export default {
     },
     created() {
         this.updateLoginFields();
+        // 进入登录页时清本地身份，避免切换账号时残留
+        this.$store.commit('clearUserSession');
     },
     watch: {
         '$i18n.locale'() {

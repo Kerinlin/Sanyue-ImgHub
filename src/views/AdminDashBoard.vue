@@ -20,6 +20,10 @@
                     />
                 </div>
                 <div class="actions">
+                <span v-if="headerUsername" class="header-username" :title="headerUsername">
+                    <font-awesome-icon icon="user" style="margin-right: 4px;"/>
+                    {{ headerUsername }}
+                </span>
                 <el-tooltip :disabled="disableTooltip" :content="$t('dashboard.linkFormat')" placement="bottom" :show-after="1000">
                     <span class="el-dropdown-link">
                         <font-awesome-icon icon="link" class="header-icon" @click="showUrlDialog = true"></font-awesome-icon>
@@ -525,7 +529,13 @@ setup() {
     };
 },
 computed: {
-    ...mapGetters(['adminUrlSettings', 'userConfig']),
+    ...mapGetters(['adminUrlSettings', 'userConfig', 'username', 'authType']),
+    headerUsername() {
+        if (this.$route.meta?.userFiles || this.authType === 'user') {
+            return this.username || '';
+        }
+        return '';
+    },
     filteredTableData() {
         return this.tableData;
     },
@@ -1292,17 +1302,22 @@ methods: {
             videoElement.msRequestFullscreen();
         }
     },
-    handleLogout() {
-        const url = process.env.NODE_ENV === 'production' ? '/api/auth/logout' : '/api/api/auth/logout';
-        fetch(url, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ authType: 'admin' })
-        }).finally(() => {
-            this.$store.commit('setAdminLoggedIn', false);
-            this.$router.push('/adminLogin');
-        });
+    async handleLogout() {
+        const isUserFiles = this.$route.meta?.userFiles || this.$store.state.authType === 'user';
+        const authType = isUserFiles ? 'user' : 'admin';
+        try {
+            const { logoutAndRedirect } = await import('@/utils/authLogout');
+            await logoutAndRedirect(this.$router, authType);
+            this.$message.success(this.$t('dashboard.logoutSuccess') || this.$t('upload.logoutSuccess'));
+        } catch (e) {
+            if (authType === 'user') {
+                this.$store.commit('clearUserSession');
+                this.$router.push({ name: 'login' });
+            } else {
+                this.$store.commit('setAdminLoggedIn', false);
+                this.$router.push({ name: 'adminLogin' });
+            }
+        }
     },
     handleSelectPage() {
         if (this.selectPage) {

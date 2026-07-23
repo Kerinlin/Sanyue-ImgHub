@@ -85,10 +85,17 @@ export default createStore({
       state.userId = userId;
       state.username = username;
       state.authType = authType;
-      state.userLoggedIn = true;
+      // 有 userId 才视为已登录；显式清空时同步登出
+      state.userLoggedIn = !!(userId || username);
     },
     setAuthType(state, authType) {
       state.authType = authType;
+    },
+    clearUserSession(state) {
+      state.userLoggedIn = false;
+      state.userId = null;
+      state.username = null;
+      if (state.authType === 'user') state.authType = null;
     },
     setUploadMethod(state, uploadMethod) {
       state.uploadMethod = uploadMethod;

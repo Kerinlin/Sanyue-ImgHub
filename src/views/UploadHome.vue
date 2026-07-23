@@ -3,6 +3,17 @@
     <div class="upload-home">
         <!-- 桌面端按钮 -->
         <ToggleDark class="toggle-dark-button desktop-only"/>
+        <!-- 当前账号 + 退出（桌面端显式入口，方便切换账号） -->
+        <div v-if="displayUsername" class="user-account-bar desktop-only">
+            <span class="user-account-name" :title="displayUsername">
+                <font-awesome-icon icon="user" class="user-account-icon"/>
+                {{ displayUsername }}
+            </span>
+            <el-button class="user-logout-button" size="small" @click="handleLogout">
+                <font-awesome-icon icon="sign-out-alt" style="margin-right: 4px;"/>
+                {{ $t('upload.logout') }}
+            </el-button>
+        </div>
         <el-dropdown class="more-dropdown desktop-only" trigger="click" @command="handleDesktopMenuCommand">
             <el-button class="more-button">
                 <font-awesome-icon icon="ellipsis-v" size="lg"/>
@@ -24,6 +35,10 @@
                     <el-dropdown-item command="viewDocs">
                         <font-awesome-icon icon="book" style="width: 16px; margin-right: 8px; text-align: center;"/>
                         {{ $t('upload.viewDocs') }}
+                    </el-dropdown-item>
+                    <el-dropdown-item divided command="logout">
+                        <font-awesome-icon icon="sign-out-alt" style="width: 16px; margin-right: 8px; text-align: center;"/>
+                        {{ $t('upload.logout') }}
                     </el-dropdown-item>
                 </el-dropdown-menu>
             </template>
@@ -98,6 +113,10 @@
                     <el-dropdown-item command="viewDocs">
                         <font-awesome-icon icon="book" style="width: 16px; margin-right: 8px; text-align: center;"/>
                         {{ $t('upload.viewDocs') }}
+                    </el-dropdown-item>
+                    <el-dropdown-item divided command="logout">
+                        <font-awesome-icon icon="sign-out-alt" style="width: 16px; margin-right: 8px; text-align: center;"/>
+                        {{ displayUsername ? $t('upload.logoutAs', { user: displayUsername }) : $t('upload.logout') }}
                     </el-dropdown-item>
                 </el-dropdown-menu>
             </template>
@@ -258,6 +277,7 @@ import backgroundManager from '@/mixins/backgroundManager'
 import axios from '@/utils/axios'
 import { ref } from 'vue'
 import { mapGetters } from 'vuex'
+import { logoutAndRedirect } from '@/utils/authLogout'
 import { validateFolderPath } from '@/utils/pathValidator'
 
 export default {
@@ -364,7 +384,10 @@ export default {
         }
     },
     computed: {
-        ...mapGetters(['userConfig', 'uploadCopyUrlForm', 'compressConfig', 'storeUploadChannel', 'storeChannelName', 'storeUploadNameType', 'customUrlSettings', 'storeAutoRetry', 'storeUploadMethod', 'storeUploadFolder']),
+        ...mapGetters(['userConfig', 'uploadCopyUrlForm', 'compressConfig', 'storeUploadChannel', 'storeChannelName', 'storeUploadNameType', 'customUrlSettings', 'storeAutoRetry', 'storeUploadMethod', 'storeUploadFolder', 'username', 'userId', 'authType']),
+        displayUsername() {
+            return this.username || ''
+        },
         ownerName() {
             return this.userConfig?.ownerName || 'Sanyue'
         },
@@ -525,12 +548,14 @@ export default {
         openUrlDialog() {
             this.showUrlDialog = true
         },
-        handleLogout() {
-            axios.post('/api/auth/logout', { authType: 'user' }, { withCredentials: true }).finally(() => {
-                this.$store.commit('setUserLoggedIn', false);
-                this.$router.push('/login')
+        async handleLogout() {
+            try {
+                await logoutAndRedirect(this.$router, 'user')
                 this.$message.success(this.$t('upload.logoutSuccess'))
-            })
+            } catch (e) {
+                this.$store.commit('clearUserSession')
+                this.$router.push({ name: 'login' })
+            }
         },
         changeUrlForm() {
             this.$store.commit('setUploadCopyUrlForm', this.selectedUrlForm)
@@ -606,6 +631,8 @@ export default {
             } else if (command === 'toggleLanguage') {
                 const next = this.$i18n.locale === 'zh-CN' ? 'en' : 'zh-CN'
                 setLocale(next)
+            } else if (command === 'logout') {
+                this.handleLogout()
             }
         },
         handleDesktopMenuCommand(command) {
@@ -615,6 +642,8 @@ export default {
                 this.showHistory = true
             } else if (command === 'showAnnouncement') {
                 this.handleShowAnnouncement()
+            } else if (command === 'logout') {
+                this.handleLogout()
             } else if (command === 'toggleLanguage') {
                 const next = this.$i18n.locale === 'zh-CN' ? 'en' : 'zh-CN'
                 setLocale(next)
@@ -793,6 +822,49 @@ export default {
     }
 }
 
+.user-account-bar {
+    position: fixed;
+    top: 30px;
+    right: 130px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: min(280px, calc(100vw - 200px));
+    padding: 4px 8px 4px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    background-color: var(--glass-bg);
+    box-sizing: border-box;
+}
+.user-account-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: var(--theme-toggle-color, inherit);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 140px;
+}
+.user-account-icon {
+    flex-shrink: 0;
+    opacity: 0.85;
+}
+.user-logout-button {
+    flex-shrink: 0;
+    border-radius: 8px !important;
+    border: 1px solid var(--glass-border) !important;
+    background: transparent !important;
+    color: var(--theme-toggle-color, inherit) !important;
+    height: 28px;
+    padding: 0 10px !important;
+}
+.user-logout-button:hover {
+    border-color: var(--glass-border-hover) !important;
+    transform: scale(1.02);
+}
 .toggle-dark-button {
     width: 2.5rem;
     height: 2.5rem;
