@@ -3,17 +3,6 @@
     <div class="upload-home">
         <!-- 桌面端按钮 -->
         <ToggleDark class="toggle-dark-button desktop-only"/>
-        <!-- 当前账号 + 退出（桌面端显式入口，方便切换账号） -->
-        <div v-if="displayUsername" class="user-account-bar desktop-only">
-            <span class="user-account-name" :title="displayUsername">
-                <font-awesome-icon icon="user" class="user-account-icon"/>
-                {{ displayUsername }}
-            </span>
-            <el-button class="user-logout-button" size="small" @click="handleLogout">
-                <font-awesome-icon icon="sign-out-alt" style="margin-right: 4px;"/>
-                {{ $t('upload.logout') }}
-            </el-button>
-        </div>
         <el-dropdown class="more-dropdown desktop-only" trigger="click" @command="handleDesktopMenuCommand">
             <el-button class="more-button">
                 <font-awesome-icon icon="ellipsis-v" size="lg"/>
@@ -76,10 +65,9 @@
                 </template>
             </DirectoryTreePicker>
         </div>
-        <el-tooltip :content="$t('upload.switchUploadMethod')" placement="bottom" :disabled="disableTooltip" :show-after="1000">
+        <el-tooltip :content="uploadMethodTooltip" placement="bottom" :disabled="disableTooltip" :show-after="1000">
             <el-button class="upload-method-button desktop-only" @click="handleChangeUploadMethod">
-                <font-awesome-icon v-if="uploadMethod === 'default'"  icon="folder-open" class="upload-method-icon" size="lg"/>
-                <font-awesome-icon v-else-if="uploadMethod === 'paste'" icon="paste" class="upload-method-icon" size="lg"/>
+                <font-awesome-icon :icon="uploadMethodIcon" class="upload-method-icon" size="lg"/>
             </el-button>
         </el-tooltip>
 
@@ -95,8 +83,8 @@
                         {{ getThemeText() }}
                     </el-dropdown-item>
                     <el-dropdown-item command="toggleUploadMethod">
-                        <font-awesome-icon :icon="uploadMethod === 'default' ? 'paste' : 'folder-open'" style="width: 16px; margin-right: 8px; text-align: center;"/>
-                        {{ uploadMethod === 'default' ? $t('upload.pasteUpload') : $t('upload.fileUpload') }}
+                        <font-awesome-icon :icon="nextUploadMethodIcon" style="width: 16px; margin-right: 8px; text-align: center;"/>
+                        {{ nextUploadMethodLabel }}
                     </el-dropdown-item>
                     <el-dropdown-item command="showHistory">
                         <font-awesome-icon icon="history" style="width: 16px; margin-right: 8px; text-align: center;"/>
@@ -388,6 +376,32 @@ export default {
         displayUsername() {
             return this.username || ''
         },
+        uploadMethodOrder() {
+            return ['default', 'folder', 'paste']
+        },
+        uploadMethodIcon() {
+            if (this.uploadMethod === 'folder') return 'folder'
+            if (this.uploadMethod === 'paste') return 'paste'
+            return 'folder-open'
+        },
+        nextUploadMethod() {
+            const order = this.uploadMethodOrder
+            const idx = order.indexOf(this.uploadMethod)
+            return order[(idx >= 0 ? idx + 1 : 1) % order.length]
+        },
+        nextUploadMethodIcon() {
+            if (this.nextUploadMethod === 'folder') return 'folder'
+            if (this.nextUploadMethod === 'paste') return 'paste'
+            return 'folder-open'
+        },
+        nextUploadMethodLabel() {
+            if (this.nextUploadMethod === 'folder') return this.$t('upload.folderUpload')
+            if (this.nextUploadMethod === 'paste') return this.$t('upload.pasteUpload')
+            return this.$t('upload.fileUpload')
+        },
+        uploadMethodTooltip() {
+            return `${this.$t('upload.switchUploadMethod')}: ${this.nextUploadMethodLabel}`
+        },
         ownerName() {
             return this.userConfig?.ownerName || 'Sanyue'
         },
@@ -435,7 +449,11 @@ export default {
         this.customUrlPrefix = this.customUrlSettings.customUrlPrefix
         this.useCustomUrl = this.customUrlSettings.useCustomUrl
         // 读取用户偏好的上传方式
-        this.uploadMethod = this.storeUploadMethod
+        // 兼容历史值；非法值回退文件上传
+        const allowedMethods = ['default', 'folder', 'paste']
+        this.uploadMethod = allowedMethods.includes(this.storeUploadMethod)
+            ? this.storeUploadMethod
+            : 'default'
         // 获取可用渠道列表
         this.fetchAvailableChannels()
         // 读取用户设置的上传文件夹
@@ -599,7 +617,7 @@ export default {
             }
         },
         handleChangeUploadMethod() {
-            this.uploadMethod = this.uploadMethod === 'default'? 'paste' : 'default'
+            this.uploadMethod = this.nextUploadMethod
             this.$store.commit('setUploadMethod', this.uploadMethod)
         },
         handleMobileMenuCommand(command) {
@@ -822,49 +840,6 @@ export default {
     }
 }
 
-.user-account-bar {
-    position: fixed;
-    top: 30px;
-    right: 130px;
-    z-index: 100;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    max-width: min(280px, calc(100vw - 200px));
-    padding: 4px 8px 4px 12px;
-    border-radius: 12px;
-    border: 1px solid var(--glass-border);
-    background-color: var(--glass-bg);
-    box-sizing: border-box;
-}
-.user-account-name {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.85rem;
-    color: var(--theme-toggle-color, inherit);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 140px;
-}
-.user-account-icon {
-    flex-shrink: 0;
-    opacity: 0.85;
-}
-.user-logout-button {
-    flex-shrink: 0;
-    border-radius: 8px !important;
-    border: 1px solid var(--glass-border) !important;
-    background: transparent !important;
-    color: var(--theme-toggle-color, inherit) !important;
-    height: 28px;
-    padding: 0 10px !important;
-}
-.user-logout-button:hover {
-    border-color: var(--glass-border-hover) !important;
-    transform: scale(1.02);
-}
 .toggle-dark-button {
     width: 2.5rem;
     height: 2.5rem;

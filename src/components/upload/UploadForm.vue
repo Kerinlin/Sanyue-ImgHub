@@ -7,11 +7,14 @@
         >
             <div class="upload-card-glow" ref="uploadCardGlow"></div>
             <el-upload
-                v-if="uploadMethod === 'default'"
+                v-if="isFilePickerMethod"
+                :key="uploadMethod"
                 class="upload-card"
                 :class="{'is-uploading': uploading, 'upload-card-busy': fileList.length}"
                 drag
                 multiple
+                action="#"
+                :directory="isFolderUploadMethod"
                 :http-request="uploadFile"
                 :onSuccess="handleSuccess"
                 :on-error="handleError"
@@ -26,7 +29,7 @@
                         <path d="M7 12h10"/>
                     </svg>
                 </el-icon>
-                <div class="el-upload__text" :class="{'upload-list-busy': fileList.length}" v-html="$t('upload.dragUploadText')"></div>
+                <div class="el-upload__text" :class="{'upload-list-busy': fileList.length}" v-html="uploadDragText"></div>
             </el-upload>
         </div>
         <div v-if="uploadMethod === 'paste'" class="upload-card">
@@ -323,6 +326,17 @@ computed: {
         } else {
             return window.innerWidth < 768 ? 'small' : 'medium'
         }
+    },
+    isFolderUploadMethod() {
+        return this.uploadMethod === 'folder'
+    },
+    isFilePickerMethod() {
+        return this.uploadMethod === 'default' || this.uploadMethod === 'folder'
+    },
+    uploadDragText() {
+        return this.isFolderUploadMethod
+            ? this.$t('upload.dragFolderUploadText')
+            : this.$t('upload.dragUploadText')
     }
 },
 mounted() {
@@ -337,6 +351,49 @@ beforeUnmount() {
     this.activeUploads = 0
 },
 methods: {
+    // 规范化上传目录路径（去掉首尾 /，合并多余 /）
+    normalizeFolderPath(folder) {
+        if (!folder) return ''
+        return String(folder)
+            .replace(/\\/g, '/')
+            .split('/')
+            .map(seg => seg.trim())
+            .filter(seg => seg && seg !== '.')
+            .join('/')
+    },
+    // 从 webkitRelativePath 解析目录部分（不含文件名）
+    getRelativeDirFromFile(file) {
+        const rel = file?.webkitRelativePath || file?.relativePath || ''
+        if (!rel || !rel.includes('/')) return ''
+        return this.normalizeFolderPath(rel.split('/').slice(0, -1).join('/'))
+    },
+    // 合并用户指定目录 + 本地文件夹相对路径
+    resolveUploadFolderForFile(file) {
+        const base = this.normalizeFolderPath(this.uploadFolder)
+        const relDir = this.getRelativeDirFromFile(file)
+        if (base && relDir) return `${base}/${relDir}`
+        return base || relDir || ''
+    },
+    // 取 fileList 项上缓存的 uploadFolder，回退到全局
+    getItemUploadFolder(fileOrUid) {
+        const uid = typeof fileOrUid === 'object'
+            ? (fileOrUid?.uid ?? fileOrUid?.file?.uid)
+            : fileOrUid
+        const item = this.fileList.find(f => f.uid === uid)
+        if (item && item.uploadFolder !== undefined && item.uploadFolder !== null) {
+            return item.uploadFolder
+        }
+        return this.normalizeFolderPath(this.uploadFolder)
+    },
+    shouldSkipUploadFile(file) {
+        if (!file) return true
+        if (file.isDirectory) return true
+        const name = file.name || ''
+        if (!name) return true
+        if (name === '.DS_Store' || name === 'Thumbs.db' || name === 'desktop.ini') return true
+        if (name.startsWith('._')) return true
+        return false
+    },
     // 文件名中间截断，保留前缀和扩展名
     truncateFilename(filename, maxLength = 20) {
         if (!filename || filename.length <= maxLength) {
@@ -480,6 +537,7 @@ methods: {
             }
         }
 
+        const uploadFolder = this.getItemUploadFolder(file.file.uid)
         axios({
             url: '/upload' + 
                 '?serverCompress=' + needServerCompress + 
@@ -487,7 +545,7 @@ methods: {
                 (this.channelName ? '&channelName=' + encodeURIComponent(this.channelName) : '') +
                 '&uploadNameType=' + uploadNameType + 
                 '&autoRetry=' + autoRetry + 
-                '&uploadFolder=' + encodeURIComponent(this.uploadFolder),
+                '&uploadFolder=' + encodeURIComponent(uploadFolder),
             method: 'post',
             data: formData,
             withAuthCode: true,
@@ -564,6 +622,7 @@ methods: {
             initFormData.append('originalFileType', fileType)
             initFormData.append('totalChunks', totalChunks.toString())
 
+            const uploadFolder = this.getItemUploadFolder(file.file.uid)
             const initResponse = await axios({
                 url: '/upload' + 
                     '?serverCompress=' + needServerCompress + 
@@ -571,7 +630,7 @@ methods: {
                     (this.channelName ? '&channelName=' + encodeURIComponent(this.channelName) : '') +
                     '&uploadNameType=' + uploadNameType + 
                     '&autoRetry=' + autoRetry + 
-                    '&uploadFolder=' + encodeURIComponent(this.uploadFolder) +
+                    '&uploadFolder=' + encodeURIComponent(uploadFolder) +
                     '&initChunked=true',
                 method: 'post',
                 data: initFormData,
@@ -628,7 +687,7 @@ methods: {
                                 (this.channelName ? '&channelName=' + encodeURIComponent(this.channelName) : '') +
                                 '&uploadNameType=' + uploadNameType + 
                                 '&autoRetry=' + autoRetry + 
-                                '&uploadFolder=' + encodeURIComponent(this.uploadFolder) +
+                                '&uploadFolder=' + encodeURIComponent(uploadFolder) +
                                 '&chunked=true',
                             method: 'post',
                             data: formData,
@@ -718,7 +777,7 @@ methods: {
                     (this.channelName ? '&channelName=' + encodeURIComponent(this.channelName) : '') +
                     '&uploadNameType=' + uploadNameType + 
                     '&autoRetry=' + autoRetry + 
-                    '&uploadFolder=' + encodeURIComponent(this.uploadFolder) +
+                    '&uploadFolder=' + encodeURIComponent(uploadFolder) +
                     '&chunked=true&merge=true',
                 method: 'post',
                 data: mergeFormData,
@@ -870,7 +929,15 @@ methods: {
     },
     beforeUpload(file) {
         return new Promise(async (resolve, reject) => {
+            if (this.shouldSkipUploadFile(file)) {
+                reject(false)
+                return
+            }
+
             let processedFile = file
+            // webkitRelativePath 只读，压缩/WebP 后需单独缓存目录信息
+            const resolvedUploadFolder = this.resolveUploadFolderForFile(file)
+            const displayName = file.webkitRelativePath || file.relativePath || file.name
             
             // WebP 转换：在压缩之前进行
             // 条件：1.开启WebP转换 2.文件类型为图片 3.不是WebP/GIF/SVG格式
@@ -901,7 +968,7 @@ methods: {
                 const fileUrl = URL.createObjectURL(file)
                 this.fileList.push({
                     uid: file.uid,
-                    name: file.name,
+                    name: displayName,
                     url: fileUrl,
                     finalURL: '',
                     mdURL: '',
@@ -912,6 +979,7 @@ methods: {
                     progreess: 0,
                     serverCompress: serverCompress,
                     retryCount: 0,
+                    uploadFolder: resolvedUploadFolder,
                 })
                 resolve(file)
             }
@@ -1287,7 +1355,7 @@ methods: {
                     fileSample,
                     channelName: this.channelName, // 传递指定的渠道名称
                     uploadNameType: this.uploadNameType,
-                    uploadFolder: this.uploadFolder
+                    uploadFolder: this.getItemUploadFolder(file.file.uid)
                 },
                 withAuthCode: true,
                 signal: abortController.signal
@@ -1602,9 +1670,10 @@ beforeDestroy() {
 .upload-card-wrapper {
     position: relative;
     overflow: visible;
+    z-index: 1;
 }
 
-/* 悬浮光斑效果 */
+/* 悬浮光斑效果（不得挡住点击，否则无法弹出文件选择框） */
 .upload-card-glow {
     position: absolute;
     width: 200px;
@@ -1615,13 +1684,22 @@ beforeDestroy() {
     transform: translate(-50%, -50%);
     opacity: 0;
     transition: opacity 0.3s ease;
-    z-index: 10;
+    z-index: 0;
 }
 
 .upload-card {
+    position: relative;
+    z-index: 1;
     width: 55vw;
     padding: 20px;
     background: none;
+    cursor: pointer;
+}
+:deep(.el-upload),
+:deep(.el-upload-dragger) {
+    cursor: pointer;
+    position: relative;
+    z-index: 1;
 }
 @media (max-width: 768px) {
     .upload-card {
